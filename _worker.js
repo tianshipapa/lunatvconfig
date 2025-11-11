@@ -1,7 +1,7 @@
-// ----------------------  带复制按钮的完整版 _worker (zj).js  ----------------------
+// ----------------------  最终无矛盾版 _worker (zj).js  ----------------------
 export default {
   async fetch(request, env, ctx) {
-    /* ===== 1. 地址选择：U 优先 → 再按 source 选默认 ===== */
+    /* ===== 1. 构造来源表 ===== */
     const DEFAULT_JSON_SOURCES = {
       jin18:
         'https://raw.githubusercontent.com/hafrey1/LunaTV-config/refs/heads/main/jin18.json',
@@ -10,12 +10,12 @@ export default {
       full:
         'https://raw.githubusercontent.com/hafrey1/LunaTV-config/refs/heads/main/LunaTV-config.json',
     };
-    let jsonUrl = (env.U || '').trim();
-    const reqUrl = new URL(request.url);
-    const sourceParam = reqUrl.searchParams.get('source');
-    if (!jsonUrl) {
-      jsonUrl = DEFAULT_JSON_SOURCES[sourceParam] || DEFAULT_JSON_SOURCES.full;
-    }
+
+    // 如果配置了 U，就把 U 当作一个额外来源
+    const uUrl = (env.U || '').trim();
+    const JSON_SOURCES = uUrl
+      ? { ...DEFAULT_JSON_SOURCES, U: uUrl }
+      : DEFAULT_JSON_SOURCES;
 
     /* ===== 2. 工具函数（与 d.js 完全一致） ===== */
     const BASE58_ALPHABET =
@@ -67,6 +67,7 @@ export default {
     if (request.method === 'OPTIONS')
       return new Response(null, { status: 204, headers: corsHeaders });
 
+    const reqUrl = new URL(request.url);
     const currentOrigin = reqUrl.origin;
     const defaultPrefix = currentOrigin + '/?url=';
 
@@ -138,6 +139,7 @@ export default {
     /* ===== 5. 配置接口：优先新风格（format+source），再兼容老风格（config+encode） ===== */
     const formatParam = reqUrl.searchParams.get('format');
     const prefixParam = reqUrl.searchParams.get('prefix');
+    const source = reqUrl.searchParams.get('source') || 'full';
 
     const FORMAT_MAP = {
       '0': 'raw',
@@ -161,8 +163,16 @@ export default {
     }
 
     if (mode) {
+      // 选中地址
+      const targetSource = JSON_SOURCES[source]
+        ? source
+        : uUrl
+        ? 'full'
+        : 'full';
+      const targetUrl = JSON_SOURCES[targetSource];
+
       try {
-        const data = await (await fetch(jsonUrl)).json();
+        const data = await (await fetch(targetUrl)).json();
         let outData = data;
         if (mode === 'proxy' || mode === 'proxy-base58') {
           outData = addOrReplacePrefix(data, prefixParam || defaultPrefix);
@@ -184,7 +194,7 @@ export default {
       }
     }
 
-    /* ===== 6. 首页说明（完全迁移 _worker (d).js 的 HTML+复制按钮） ===== */
+    /* ===== 6. 首页说明（含复制按钮，与 d.js 完全一致） ===== */
     const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -225,7 +235,8 @@ table td:first-child{background:#f5f5f5;font-weight:bold;width:30%}
 <tr><td>source</td>
 <td><code>jin18</code> = 精简版<br>
     <code>jingjian</code> = 精简版+成人<br>
-    <code>full</code> = 完整版（默认）</td></tr>
+    <code>full</code> = 完整版（默认）<br>
+    <code>U</code> = 环境变量自定义地址</td></tr>
 <tr><td>prefix</td><td>自定义代理前缀（仅在 format=1 或 3 时生效）</td></tr>
 </table>
 </div>
@@ -254,6 +265,18 @@ table td:first-child{background:#f5f5f5;font-weight:bold;width:30%}
 <p>原始 Base58：<br><code class="copyable">${currentOrigin}?format=2&source=full</code> <button class="copy-btn">复制</button></p>
 <p>中转 Base58：<br><code class="copyable">${currentOrigin}?format=3&source=full</code> <button class="copy-btn">复制</button></p>
 </div>
+${
+  uUrl
+    ? `
+<div class="section">
+<h3>📦 自定义 U 地址</h3>
+<p>原始 JSON：<br><code class="copyable">${currentOrigin}?format=0&source=U</code> <button class="copy-btn">复制</button></p>
+<p>中转代理 JSON：<br><code class="copyable">${currentOrigin}?format=1&source=U</code> <button class="copy-btn">复制</button></p>
+<p>原始 Base58：<br><code class="copyable">${currentOrigin}?format=2&source=U</code> <button class="copy-btn">复制</button></p>
+<p>中转 Base58：<br><code class="copyable">${currentOrigin}?format=3&source=U</code> <button class="copy-btn">复制</button></p>
+</div>`
+    : ''
+}
 
 <h2>支持的功能</h2>
 <ul>
