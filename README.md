@@ -12,7 +12,7 @@ CFPAGE部署方法
 1.fork本项目
 2.打开cfPages → 你的项目 → 设置 → 变量和机密 → 添加
 变量名（大写U）: U
-值可以设置成lunatv配置地址，默认的是https://github.com/hafrey1/LunaTV-config中的jinjian.json。
+值可以设置成lunatv配置地址，默认的是https://github.com/hafrey1/LunaTV-config中的jinjian.json等3个地址，可以选择。
 保存后自动重新部署即可。
 以后想换地址，直接改控制台里的 U，无需重新 push 代码。
 
